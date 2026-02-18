@@ -1,0 +1,25 @@
+# Network Speed Service Configuration
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+# Speed Test Configuration
+speedtest:
+  downloadSizeMb: 10          # Download payload size in MB for speed test
+  uploadSizeMb: 5             # Upload payload size in MB for speed test
+  timeoutSeconds: 30           # Timeout for individual speed test operations
+  defaultPingCount: 5          # Number of pings per latency test
+  maxConcurrentTests: 10       # Max concurrent speed tests allowed
+
+# Server Discovery Configuration
+serverDiscovery:
+  refreshIntervalMinutes: 60   # How often to refresh the server list
+  maxServers: 50               # Maximum number of test servers to maintain
+  defaultRegion: "auto"        # Default region selection (auto = geolocate)
+
+# Verticle Instances
+verticles:
+  http: 1
+  speedTest: 2
+  networkInfo: 1
