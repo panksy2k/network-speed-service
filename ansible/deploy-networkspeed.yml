@@ -1,6 +1,6 @@
 ---
 - name: Deploy network-speed-service app
-  hosts: watchprices
+  hosts: networkspeed
   vars:
     project_dir: /root/Projects/network-speed
     frontend_dir: /root/Projects/network-speed/frontend

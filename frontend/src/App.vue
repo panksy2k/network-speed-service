@@ -71,6 +71,7 @@ onMounted(async () => {
               :disabled="state.isRunning"
               kind="primary"
               size="xl"
+              class="fancy-start-button"
             >
               {{ state.isRunning ? 'Running...' : 'Start Test' }}
             </cv-button>
@@ -176,5 +177,20 @@ h1 {
   margin-bottom: 0.5rem;
   color: var(--cds-text-secondary);
   text-align: center;
+}
+.fancy-start-button {
+  padding: 1.5rem 3rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  border-radius: 50px;
+  background-image: linear-gradient(45deg, #FF5F6D, #FFC371);
+  border: none;
+  box-shadow: 0 4px 15px 0 rgba(255, 100, 120, 0.75);
+  transition: all 0.3s ease-in-out;
+}
+
+.fancy-start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px 0 rgba(255, 100, 120, 0.75);
 }
 </style>
