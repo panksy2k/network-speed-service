@@ -93,3 +93,6 @@ The service starts on `http://localhost:8090` by default.
 ### Configuration
 
 Edit `src/main/resources/config.yaml` to customize server port, speed test parameters, and server discovery settings. Configuration can also be overridden via environment variables.
+
+### Deployment on cloud host using Anisble playbook
+ansible-playbook -i ansible/inventory.ini ansible/deploy-networkspeed.yml
