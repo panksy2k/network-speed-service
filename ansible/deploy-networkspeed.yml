@@ -16,10 +16,10 @@
         force: yes
       ignore_errors: no
 
-    - name: Git pull origin main
-      shell: git pull origin main
+    - name: Frontend install dependencies
+      shell: npm install
       args:
-        chdir: "{{ project_dir }}"
+        chdir: "{{ frontend_dir }}"
 
     - name: Build frontend with npm
       shell: npm run build
@@ -34,7 +34,11 @@
         JAVA_HOME: /root/.sdkman/candidates/java/current
 
     - name: Kill existing NetworkSpeedMainVerticle process
-      shell: pkill -f NetworkSpeedMainVerticle || true
+      shell: pkill -f "network-speed-service" || true
+      ignore_errors: yes
+
+    - name: Kill existing Vite preview process
+      shell: pkill -f "vite preview" || true
       ignore_errors: yes
 
     - name: Wait for process to terminate
@@ -43,7 +47,7 @@
 
     - name: Start the application
       shell: |
-        nohup /root/.sdkman/candidates/maven/current/bin/mvn vertx:run > /tmp/networkspeed.log 2>&1 &
+        nohup /root/.sdkman/candidates/java/current/bin/java -jar target/network-speed-service-1.0.0-SNAPSHOT.jar > /tmp/networkspeed.log 2>&1 &
       args:
         chdir: "{{ project_dir }}"
       environment:
@@ -52,7 +56,7 @@
       poll: 0
 
     - name: Verify application started
-      shell: sleep 5 && ps -ef | grep -i NetworkSpeedMainVerticle | grep -v grep
+      shell: sleep 5 && ps -ef | grep -i "network-speed-service" | grep -v grep
       register: process_check
       ignore_errors: yes
 
@@ -60,3 +64,11 @@
       debug:
         msg: "Application started successfully"
       when: process_check.rc == 0
+
+    - name: Run (or preview) the frontend on Vite preview server
+      shell: |
+        nohup npm run preview -- --host > /tmp/frontend-preview.log 2>&1 &
+      args:
+        chdir: "{{ frontend_dir }}"
+      async: 10
+      poll: 0
