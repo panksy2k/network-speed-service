@@ -1,14 +1,19 @@
 package com.networkspeed.handler;
 
-import com.networkspeed.model.SpeedTestRequest;
 import com.networkspeed.service.SpeedTestService;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.ext.web.RoutingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
+
 /**
  * HTTP handler for speed test endpoints.
+ * Acts as a target for client-side speed tests.
  */
 public class SpeedTestHandler {
 
@@ -21,94 +26,52 @@ public class SpeedTestHandler {
     }
 
     /**
-     * POST /api/speedtest - Run a complete speed test.
-     */
-    public void runSpeedTest(RoutingContext ctx) {
-        SpeedTestRequest request;
-        try {
-            request = SpeedTestRequest.fromJson(ctx.body().asJsonObject());
-        } catch (Exception e) {
-            request = new SpeedTestRequest();
-        }
-
-        speedTestService.runSpeedTest(request)
-                .subscribe().with(
-                        result -> ctx.response()
-                                .putHeader("Content-Type", "application/json")
-                                .setStatusCode(200)
-                                .endAndForget(result.toJson().encode()),
-                        err -> {
-                            LOG.error("Speed test failed: {}", err.getMessage());
-                            int status = err instanceof IllegalStateException ? 429 : 500;
-                            ctx.response()
-                                    .putHeader("Content-Type", "application/json")
-                                    .setStatusCode(status)
-                                    .endAndForget(new JsonObject()
-                                            .put("error", err.getMessage())
-                                            .encode());
-                        }
-                );
-    }
-
-    /**
-     * GET /api/speedtest/download - Run only download speed test.
+     * GET /api/speedtest/download - Stream data to client for download test.
      */
     public void runDownloadTest(RoutingContext ctx) {
-        String serverId = ctx.request().getParam("serverId");
-        int sizeMb = parseIntParam(ctx, "sizeMb", 0);
+        int sizeMb = parseIntParam(ctx, "sizeMb", 10);
 
-        SpeedTestRequest request = new SpeedTestRequest()
-                .setServerId(serverId)
-                .setIncludeDownload(true)
-                .setIncludeUpload(false)
-                .setIncludeLatency(false)
-                .setDownloadSizeMb(sizeMb);
+        try {
+            Buffer data = speedTestService.generateDownloadData(sizeMb);
 
-        speedTestService.runSpeedTest(request)
-                .subscribe().with(
-                        result -> ctx.response()
-                                .putHeader("Content-Type", "application/json")
-                                .setStatusCode(200)
-                                .endAndForget(result.toJson().encode()),
-                        err -> handleError(ctx, err)
-                );
+            ctx.response()
+                    .putHeader("Content-Type", "application/octet-stream")
+                    .putHeader("Content-Length", String.valueOf(data.length()))
+                    // Disable caching so every test is real
+                    .putHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+                    .putHeader("Pragma", "no-cache")
+                    .setStatusCode(200)
+                    .endAndForget(io.vertx.mutiny.core.buffer.Buffer.newInstance(data));
+        } catch (Exception e) {
+            handleError(ctx, e);
+        }
     }
 
     /**
-     * GET /api/speedtest/upload - Run only upload speed test.
+     * POST /api/speedtest/upload - Receive data from client for upload test.
      */
     public void runUploadTest(RoutingContext ctx) {
-        String serverId = ctx.request().getParam("serverId");
-        int sizeMb = parseIntParam(ctx, "sizeMb", 0);
+        String clientTimeStr = ctx.request().getHeader("X-Client-Timestamp");
+        long clientTimeMs = 0;
+        if (clientTimeStr != null) {
+            try {
+                clientTimeMs = Long.parseLong(clientTimeStr);
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid X-Client-Timestamp: {}", clientTimeStr);
+            }
+        }
 
-        SpeedTestRequest request = new SpeedTestRequest()
-                .setServerId(serverId)
-                .setIncludeDownload(false)
-                .setIncludeUpload(true)
-                .setIncludeLatency(false)
-                .setUploadSizeMb(sizeMb);
+        io.vertx.mutiny.core.buffer.Buffer body = ctx.body().buffer();
+        if(body == null) {
+          ctx.response()
+            .putHeader("Content-Type", "application/json")
+            .setStatusCode(400).end();
+        }
 
-        speedTestService.runSpeedTest(request)
-                .subscribe().with(
-                        result -> ctx.response()
-                                .putHeader("Content-Type", "application/json")
-                                .setStatusCode(200)
-                                .endAndForget(result.toJson().encode()),
-                        err -> handleError(ctx, err)
-                );
-    }
-
-    /**
-     * GET /api/speedtest/status - Get current speed test status.
-     */
-    public void getStatus(RoutingContext ctx) {
         ctx.response()
                 .putHeader("Content-Type", "application/json")
                 .setStatusCode(200)
-                .endAndForget(new JsonObject()
-                        .put("activeTests", speedTestService.getActiveTestCount())
-                        .put("status", "ready")
-                        .encode());
+                .endAndForget();
     }
 
     private int parseIntParam(RoutingContext ctx, String name, int defaultValue) {

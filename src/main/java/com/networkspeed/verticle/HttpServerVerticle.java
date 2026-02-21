@@ -3,11 +3,8 @@ package com.networkspeed.verticle;
 import com.networkspeed.config.AppConfig;
 import com.networkspeed.handler.ErrorHandler;
 import com.networkspeed.handler.NetworkInfoHandler;
-import com.networkspeed.handler.ServerSelectionHandler;
 import com.networkspeed.handler.SpeedTestHandler;
 import com.networkspeed.service.NetworkInfoService;
-import com.networkspeed.service.PingService;
-import com.networkspeed.service.ServerDiscoveryService;
 import com.networkspeed.service.SpeedTestService;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.vertx.core.AbstractVerticle;
@@ -32,7 +29,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     private AppConfig appConfig;
     private SpeedTestHandler speedTestHandler;
     private NetworkInfoHandler networkInfoHandler;
-    private ServerSelectionHandler serverSelectionHandler;
     private ErrorHandler errorHandler;
 
     @Override
@@ -42,27 +38,21 @@ public class HttpServerVerticle extends AbstractVerticle {
         appConfig = new AppConfig(config());
 
         // Initialize services
-        PingService pingService = new PingService(vertx);
-        ServerDiscoveryService serverDiscoveryService = new ServerDiscoveryService(vertx, appConfig);
-        SpeedTestService speedTestService = new SpeedTestService(vertx, appConfig, pingService, serverDiscoveryService);
+        SpeedTestService speedTestService = new SpeedTestService();
         NetworkInfoService networkInfoService = new NetworkInfoService(vertx);
 
         // Initialize handlers
         speedTestHandler = new SpeedTestHandler(speedTestService);
         networkInfoHandler = new NetworkInfoHandler(networkInfoService);
-        serverSelectionHandler = new ServerSelectionHandler(serverDiscoveryService, pingService);
         errorHandler = new ErrorHandler();
 
         // Create router
         Router router = createRouter();
 
-        // Initialize server discovery, then start HTTP server
-        return serverDiscoveryService.initialize()
-                .onItem().transformToUni(v ->
-                        vertx.createHttpServer()
-                                .requestHandler(router)
-                                .listen(appConfig.getHttpPort(), appConfig.getHttpHost())
-                )
+        // Start HTTP server
+        return vertx.createHttpServer()
+                .requestHandler(router)
+                .listen(appConfig.getHttpPort(), appConfig.getHttpHost())
                 .onItem().invoke(server ->
                         LOG.info("HTTP server started on {}:{}", appConfig.getHttpHost(), server.actualPort()))
                 .replaceWithVoid();
@@ -95,26 +85,16 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .endAndForget(new JsonObject()
                             .put("name", "Network Speed Service API")
                             .put("version", "1.0.0")
-                            .put("description", "Reactive network speed test service using Vert.x and SmallRye Mutiny")
+                            .put("description", "Server-side network speed test target")
                             .encode());
         });
 
         // Speed test endpoints
-        router.post("/api/speedtest").handler(speedTestHandler::runSpeedTest);
         router.get("/api/speedtest/download").handler(speedTestHandler::runDownloadTest);
-        router.get("/api/speedtest/upload").handler(speedTestHandler::runUploadTest);
-        router.get("/api/speedtest/status").handler(speedTestHandler::getStatus);
+        router.post("/api/speedtest/upload").handler(speedTestHandler::runUploadTest);
 
         // Network info endpoints
         router.get("/api/network/info").handler(networkInfoHandler::getNetworkInfo);
-        router.get("/api/network/wifi").handler(networkInfoHandler::getWifiDetails);
-
-        // Server selection endpoints
-        router.get("/api/servers").handler(serverSelectionHandler::listServers);
-        router.get("/api/servers/nearest").handler(serverSelectionHandler::getNearestServer);
-        router.get("/api/servers/:id").handler(serverSelectionHandler::getServer);
-        router.get("/api/servers/:id/ping").handler(serverSelectionHandler::pingServer);
-        router.post("/api/servers/refresh").handler(serverSelectionHandler::refreshServers);
 
         // 404 handler for unmatched routes
         router.route().last().handler(errorHandler::handleNotFound);
@@ -133,6 +113,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         allowedHeaders.add("Content-Type");
         allowedHeaders.add("accept");
         allowedHeaders.add("Authorization");
+        allowedHeaders.add("X-Forwarded-For");
 
         Set<io.vertx.core.http.HttpMethod> allowedMethods = new HashSet<>();
         allowedMethods.add(io.vertx.core.http.HttpMethod.GET);

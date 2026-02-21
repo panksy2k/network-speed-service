@@ -28,35 +28,6 @@ public class AppConfig {
         return config.getJsonObject("speedtest", new JsonObject()).getInteger("downloadSizeMb", 10);
     }
 
-    public int getUploadSizeMb() {
-        return config.getJsonObject("speedtest", new JsonObject()).getInteger("uploadSizeMb", 5);
-    }
-
-    public int getSpeedTestTimeout() {
-        return config.getJsonObject("speedtest", new JsonObject()).getInteger("timeoutSeconds", 30);
-    }
-
-    public int getDefaultPingCount() {
-        return config.getJsonObject("speedtest", new JsonObject()).getInteger("defaultPingCount", 5);
-    }
-
-    public int getMaxConcurrentTests() {
-        return config.getJsonObject("speedtest", new JsonObject()).getInteger("maxConcurrentTests", 10);
-    }
-
-    // Server Discovery Configuration
-    public int getServerRefreshInterval() {
-        return config.getJsonObject("serverDiscovery", new JsonObject()).getInteger("refreshIntervalMinutes", 60);
-    }
-
-    public int getMaxServers() {
-        return config.getJsonObject("serverDiscovery", new JsonObject()).getInteger("maxServers", 50);
-    }
-
-    public String getDefaultRegion() {
-        return config.getJsonObject("serverDiscovery", new JsonObject()).getString("defaultRegion", "auto");
-    }
-
     // Verticle Instances Configuration
     public int getHttpVerticleInstances() {
         return config.getJsonObject("verticles", new JsonObject()).getInteger("http", 1);

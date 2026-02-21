@@ -20,10 +20,13 @@ public class NetworkInfoHandler {
     }
 
     /**
-     * GET /api/network/info - Get comprehensive network information.
+     * GET /api/network/info - Get network information for the client.
      */
     public void getNetworkInfo(RoutingContext ctx) {
-        networkInfoService.getNetworkInfo()
+        String clientIp = getClientIp(ctx);
+        LOG.info("Detected Client IP: {}", clientIp);
+
+        networkInfoService.getNetworkInfo(clientIp)
                 .subscribe().with(
                         info -> ctx.response()
                                 .putHeader("Content-Type", "application/json")
@@ -42,26 +45,34 @@ public class NetworkInfoHandler {
                 );
     }
 
-    /**
-     * GET /api/network/wifi - Get WiFi-specific details.
-     */
-    public void getWifiDetails(RoutingContext ctx) {
-        networkInfoService.getWifiDetails()
-                .subscribe().with(
-                        info -> ctx.response()
-                                .putHeader("Content-Type", "application/json")
-                                .setStatusCode(200)
-                                .endAndForget(info.toJson().encode()),
-                        err -> {
-                            LOG.error("Failed to get WiFi details: {}", err.getMessage());
-                            ctx.response()
-                                    .putHeader("Content-Type", "application/json")
-                                    .setStatusCode(500)
-                                    .endAndForget(new JsonObject()
-                                            .put("error", "Failed to retrieve WiFi details")
-                                            .put("message", err.getMessage())
-                                            .encode());
-                        }
-                );
+    private String getClientIp(RoutingContext ctx) {
+        // Try common headers for proxy IP forwarding
+        String[] headers = {
+            "X-Forwarded-For",
+            "X-Real-IP",
+            "CF-Connecting-IP",
+            "True-Client-IP"
+        };
+
+        for (String header : headers) {
+            String ip = ctx.request().getHeader(header);
+            if (ip != null && !ip.isEmpty()) {
+                // Handle multiple IPs (first one is client)
+                if (ip.contains(",")) {
+                    return ip.split(",")[0].trim();
+                }
+                return ip;
+            }
+        }
+
+        // Fallback to direct connection IP
+        String remoteIp = ctx.request().remoteAddress().host();
+
+        // If localhost or loopback, return null to signal "use server's public IP"
+        if ("127.0.0.1".equals(remoteIp) || "0:0:0:0:0:0:0:1".equals(remoteIp) || "localhost".equals(remoteIp)) {
+            return null;
+        }
+
+        return remoteIp;
     }
 }
