@@ -16,6 +16,11 @@
         force: yes
       ignore_errors: no
 
+    - name: Clean existing frontend node_modules
+      file:
+        path: "{{ frontend_dir }}/node_modules"
+        state: absent
+
     - name: Frontend install dependencies
       shell: npm install
       args:
