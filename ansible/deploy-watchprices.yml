@@ -4,8 +4,6 @@
   vars:
     project_dir: /root/Projects/network-speed
     frontend_dir: /root/Projects/network-speed/frontend
-    keystore_path: /root/Projects/certificates/letsencrypt-watchprices-keystore.p12
-    keystore_secret: changeit
     origin: https://github.com/panksy2k/network-speed-service.git
 
   tasks:
@@ -35,8 +33,8 @@
       environment:
         JAVA_HOME: /root/.sdkman/candidates/java/current
 
-    - name: Kill existing MainVerticle process
-      shell: pkill -f MainVerticle || true
+    - name: Kill existing NetworkSpeedMainVerticle process
+      shell: pkill -f NetworkSpeedMainVerticle || true
       ignore_errors: yes
 
     - name: Wait for process to terminate
@@ -45,14 +43,7 @@
 
     - name: Start the application
       shell: |
-        nohup /root/.sdkman/candidates/maven/current/bin/mvn \
-          -DSERVER_KEYSTORE_PATH={{ keystore_path }} \
-          -DMONGO_HOST={{ mongo_host }} \
-          -DMONGO_PORT={{ mongo_port }} \
-          -DMONGO_DATABASE={{ mongo_database }} \
-          -DSERVER_KEYSTORE_SECRET={{ keystore_secret }} \
-          -DMONGO_CONNECTION_STRING=mongodb://{{ mongo_host }}:{{ mongo_port }} \
-          vertx:run > /tmp/watchprices.log 2>&1 &
+        nohup /root/.sdkman/candidates/maven/current/bin/mvn vertx:run > /tmp/networkspeed.log 2>&1 &
       args:
         chdir: "{{ project_dir }}"
       environment:
@@ -61,7 +52,7 @@
       poll: 0
 
     - name: Verify application started
-      shell: sleep 5 && ps -ef | grep -i MainVerticle | grep -v grep
+      shell: sleep 5 && ps -ef | grep -i NetworkSpeedMainVerticle | grep -v grep
       register: process_check
       ignore_errors: yes
 

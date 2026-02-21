@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.networkspeed.verticle.MainVerticle;
+import com.networkspeed.verticle.NetworkSpeedMainVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.jackson.DatabindCodec;
@@ -33,12 +33,12 @@ public class MainApplication {
         Vertx vertx = Vertx.vertx(options);
 
         // Deploy MainVerticle
-        vertx.deployVerticle(new MainVerticle())
+        vertx.deployVerticle(new NetworkSpeedMainVerticle())
                 .onSuccess(id -> {
                     LOG.info("Application started successfully. Deployment ID: {}", id);
-                    LOG.info("Server is running at http://localhost:8080");
-                    LOG.info("Health check: http://localhost:8080/health");
-                    LOG.info("API info: http://localhost:8080/api");
+                    LOG.info("Server is running at http://localhost:8090");
+                    LOG.info("Health check: http://localhost:8090/health");
+                    LOG.info("API info: http://localhost:8090/api");
                 })
                 .onFailure(err -> {
                     LOG.error("Failed to start application: {}", err.getMessage(), err);

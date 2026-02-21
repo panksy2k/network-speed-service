@@ -88,7 +88,7 @@ mvn exec:java
 java -jar target/network-speed-service-1.0.0-SNAPSHOT.jar
 ```
 
-The service starts on `http://localhost:8080` by default.
+The service starts on `http://localhost:8090` by default.
 
 ### Configuration
 
