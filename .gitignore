@@ -4,6 +4,11 @@ org/
 io/
 ch/
 commons-*/
+aopalliance/
+classworlds/
+javax/
+junit/
+net/
 
 # Maven
 target/
