@@ -1,3 +1,10 @@
+# Dependency artifacts in root
+com/
+org/
+io/
+ch/
+commons-*/
+
 # Maven
 target/
 dependency-reduced-pom.xml
