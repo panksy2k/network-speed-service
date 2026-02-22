@@ -4,8 +4,11 @@ import com.networkspeed.model.NetworkInfo;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Locale;
 
 
 /**
@@ -21,7 +24,9 @@ public class NetworkInfoService {
 
     public NetworkInfoService(Vertx vertx) {
         this.vertx = vertx;
-        this.webClient = WebClient.create(vertx);
+        // SSL enabled so we can call HTTPS endpoints (e.g. ipinfo.io)
+        WebClientOptions options = new WebClientOptions().setSsl(true).setTrustAll(true);
+        this.webClient = WebClient.create(vertx, options);
     }
 
     /**
@@ -32,20 +37,22 @@ public class NetworkInfoService {
     }
 
     /**
-     * Get external IP and ISP details for the client using a public API.
+     * Get external IP and ISP details for the client using ipinfo.io.
+     * ipinfo.io has more accurate geolocation data than ip-api.com, particularly
+     * for UK-hosted VPS providers where ip-api.com can return wrong countries.
      */
     private Uni<NetworkInfo> getExternalInfo(String clientIp) {
-        String url;
+        // ipinfo.io: /json for self-lookup, /{ip}/json for specific IP
+        String path;
         if (clientIp == null || clientIp.isEmpty() || clientIp.equals("127.0.0.1") || clientIp.equals("0:0:0:0:0:0:0:1")) {
-            // No client IP or localhost -> ask API for *our* (the caller's) public IP
-            url = "/json";
+            path = "/json";
         } else {
-            url = "/json/" + clientIp;
+            path = "/" + clientIp + "/json";
         }
 
-        LOG.info("Calling ip-api on URL {}", url);
+        LOG.info("Calling ipinfo.io on path {}", path);
 
-        return webClient.get(80, "ip-api.com", url)
+        return webClient.get(443, "ipinfo.io", path)
                 .timeout(5000)
                 .send()
                 .onItem()
@@ -53,15 +60,25 @@ public class NetworkInfoService {
                     NetworkInfo info = new NetworkInfo();
                     if (response.statusCode() == 200 && response.bodyAsJsonObject() != null) {
                         var json = response.bodyAsJsonObject();
-                        LOG.info("Response from ip-api.com - {}", json);
+                        LOG.info("Response from ipinfo.io - {}", json);
 
-                        info.setExternalIp(json.getString("query"));
-                        info.setIsp(json.getString("isp"));
+                        info.setExternalIp(json.getString("ip"));
+
+                        // org field format: "AS12345 ISP Name" — strip the ASN prefix
+                        String org = json.getString("org", "");
+                        info.setIsp(org.replaceAll("^AS\\d+\\s*", ""));
+
                         info.setCity(json.getString("city"));
-                        info.setRegionName(json.getString("regionName"));
-                        info.setCountry(json.getString("country"));
+                        info.setRegionName(json.getString("region"));
 
-                        // Since we can't know the client's local network type, we omit it or set to unknown
+                        // ipinfo.io returns ISO 3166-1 alpha-2 country codes (e.g. "GB");
+                        // convert to full display name (e.g. "United Kingdom")
+                        String countryCode = json.getString("country", "");
+                        String countryName = countryCode.isEmpty()
+                                ? ""
+                                : new Locale("", countryCode).getDisplayCountry(Locale.ENGLISH);
+                        info.setCountry(countryName);
+
                         info.setNetworkType("unknown");
                     } else {
                         info.setNetworkType("unknown");

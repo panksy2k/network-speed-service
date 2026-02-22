@@ -7,6 +7,34 @@
     origin: https://github.com/panksy2k/network-speed-service.git
 
   tasks:
+    - name: Install dependencies for SDKMAN
+      package:
+        name:
+          - curl
+          - zip
+          - unzip
+        state: present
+
+    - name: Install SDKMAN
+      shell: curl -s "https://get.sdkman.io" | bash
+      args:
+        creates: /root/.sdkman/bin/sdkman-init.sh
+
+    - name: Install Java 17.0.18-amzn
+      shell: |
+        source /root/.sdkman/bin/sdkman-init.sh
+        sdk install java 17.0.18-amzn
+        sdk default java 17.0.18-amzn
+      args:
+        executable: /bin/bash
+
+    - name: Install Maven
+      shell: |
+        source /root/.sdkman/bin/sdkman-init.sh
+        sdk install maven 3.9.0
+      args:
+        executable: /bin/bash
+
     - name: Pull latest code from git
       git:
         repo: "{{ origin }}"
